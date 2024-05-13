@@ -16,11 +16,11 @@ Alternatively, dfconv.py can be run manually from the command line:
 
 Convert from xlsx to parquet:
 
-`$ dfconv -if xlsx -of parquet -i data.xlsx -o data.parquet`
+`$ dfconv -i data.xlsx -o data.parquet`
 
 Force the conversion through Pandas:
 
-`$ dfconv -if xlsx -of parquet -i data.xlsx -o data.parquet --force-pandas`
+`$ dfconv -i data.xlsx -o data.parquet --force-pandas`
 
 # Dependencies
 
