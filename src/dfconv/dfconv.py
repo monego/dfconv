@@ -1,20 +1,7 @@
 import argparse
 import logging
 import mimetypes
-import sys
 import time
-
-
-try:
-    import polars as pl
-    use_polars = True
-except ImportError:
-    try:
-        import pandas as pd
-    except ImportError:
-        use_polars = False
-        raise ImportError("Neither Pandas nor Polars was found."
-                          "At least one of them must be installed.")
 
 logging.basicConfig(format='%(asctime)s - %(message)s', level=logging.INFO)
 
@@ -30,9 +17,19 @@ parser.add_argument('-o', '--output-file', required=True,
 parser.add_argument('-fp', '--force-pandas', action='store_true',
                     help="Force Pandas even when Polars is installed")
 
+def main():
 
-def main(use_polars):
-
+    try:
+        import polars as pl
+        use_polars = True
+    except ImportError:
+        try:
+            import pandas as pd
+            use_polars = False
+        except ImportError:
+            raise ImportError("Neither Pandas nor Polars was found."
+                              "At least one of them must be installed.")
+    
     args = parser.parse_args()
 
     mimetypes.init()
@@ -61,22 +58,37 @@ def main(use_polars):
         logging.info("Using the Pandas processor.")
     else:
         logging.info("Using the Polars processor.")
-
-    read_map = {
-        "csv": pl.read_csv if use_polars else pd.read_csv,
-        "arrow": pl.read_ipc if use_polars else pd.read_feather,
-        "feather": pl.read_ipc if use_polars else pd.read_feather,
-        "parquet": pl.read_parquet if use_polars else pd.read_parquet,
-        "xlsx": pl.read_excel if use_polars else pd.read_excel
-    }
-
-    write_map = {
-        "csv": lambda df, file: df.write_csv(file),
-        "arrow": lambda df, file: df.write_ipc(file),
-        "feather": lambda df, file: df.write_ipc(file),
-        "parquet": lambda df, file: df.write_parquet(file),
-        "xlsx": lambda df, file: df.write_excel(file)
-    }
+        
+    if use_polars:
+        read_map = {
+            "csv": lambda in_file: pl.read_csv(in_file),
+            "arrow": lambda in_file: pl.read_ipc(in_file),
+            "feather": lambda in_file: pl.read_ipc(in_file),
+            "parquet": lambda in_file: pl.read_parquet(in_file),
+            "xlsx": lambda in_file: pl.read_excel(in_file)
+        }
+        write_map = {
+            "arrow": lambda df, out_file: df.write_ipc(out_file),
+            "csv": lambda df, out_file: df.write_csv(out_file),
+            "feather": lambda df, out_file: df.write_ipc(out_file),
+            "parquet": lambda df, out_file: df.write_parquet(out_file),
+            "xlsx": lambda df, out_file: df.write_excel(out_file),
+        }
+    else:
+        read_map = {
+            "csv": lambda in_file: pd.read_csv(in_file),
+            "arrow": lambda in_file: pd.read_feather(in_file),
+            "feather": lambda in_file: pd.read_feather(in_file),
+            "parquet": lambda in_file: pd.read_parquet(in_file),
+            "xlsx": lambda in_file: pd.read_excel(in_file)
+        }
+        write_map = {
+            "arrow": lambda df, out_file: df.write_feather(out_file),
+            "csv": lambda df, out_file: df.write_csv(out_file),
+            "feather": lambda df, out_file: df.write_feather(out_file),
+            "parquet": lambda df, out_file: df.write_parquet(out_file),
+            "xlsx": lambda df, out_file: df.write_excel(out_file),
+        }
 
     logging.info("Reading input file")
 
@@ -84,12 +96,12 @@ def main(use_polars):
     df = read_map[input_format](input_file)
     end_read = time.time()
 
-    start_write = time.time()
     logging.info("Writing output file")
-    end_write = time.time()
 
+    start_write = time.time()
     write_map[output_format](df, output_file)
-
+    end_write = time.time()
+    
     read_time = end_read - start_read
     write_time = end_write - start_write
 
@@ -98,4 +110,4 @@ def main(use_polars):
     logging.info(f"Total execution time: {read_time + write_time} seconds")
 
 if __name__=='__main__':
-    main(use_polars)
+    main()
